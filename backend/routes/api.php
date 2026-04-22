@@ -12,7 +12,10 @@ Route::post('/login',    [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    Route::apiResource('clients',      ClientController::class)->except(['show', 'create', 'edit']);
-    Route::apiResource('services',     ServiceController::class)->only(['index', 'store']);
-    Route::apiResource('appointments', AppointmentController::class)->only(['index', 'store', 'update']);
+    Route::apiResource('clients',  ClientController::class)->except(['show', 'create', 'edit']);
+    Route::apiResource('services', ServiceController::class)->only(['index', 'store']);
+
+    Route::get('/appointments/trashed',        [AppointmentController::class, 'trashed']);
+    Route::post('/appointments/{id}/restore',  [AppointmentController::class, 'restore']);
+    Route::apiResource('appointments', AppointmentController::class)->only(['index', 'store', 'update', 'destroy']);
 });

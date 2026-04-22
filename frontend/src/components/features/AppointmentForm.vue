@@ -18,6 +18,10 @@
       <label class="block text-sm font-medium text-gray-700">Date &amp; Time</label>
       <input v-model="form.starts_at" type="datetime-local" required class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
     </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Notes</label>
+      <textarea v-model="form.notes" rows="3" placeholder="Optional notes..." class="mt-1 w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" />
+    </div>
     <p v-if="error" class="text-red-500 text-sm">{{ error }}</p>
     <Button type="submit" :loading="loading">Book Appointment</Button>
   </form>
@@ -37,7 +41,7 @@ const serviceStore     = useServiceStore()
 
 const error   = ref('')
 const loading = ref(false)
-const form    = ref({ client_id: '', service_id: '', starts_at: '' })
+const form    = ref({ client_id: '', service_id: '', starts_at: '', notes: '' })
 
 onMounted(() => {
   if (!clientStore.clients.length)  clientStore.fetchClients()
