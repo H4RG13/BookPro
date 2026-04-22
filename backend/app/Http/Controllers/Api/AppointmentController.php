@@ -15,22 +15,46 @@ class AppointmentController extends Controller
 
     #[OA\Get(
         path: '/appointments',
-        summary: 'List all appointments (with client & service)',
+        summary: 'List all active appointments (with client & service)',
         tags: ['Appointments'],
         security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string', enum: ['pending', 'confirmed', 'cancelled', 'completed', 'rescheduled'])),
+        ],
         responses: [
-            new OA\Response(
-                response: 200,
-                description: 'Array of appointments',
-                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/Appointment'))
-            ),
+            new OA\Response(response: 200, description: 'Array of appointments', content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/Appointment'))),
             new OA\Response(response: 401, description: 'Unauthenticated'),
         ]
     )]
     public function index()
     {
+        $this->appointmentService->autoComplete();
+
+        $query = Appointment::with(['client', 'service'])->orderBy('starts_at');
+
+        if (request('status') === 'rescheduled') {
+            $query->whereNotNull('rescheduled_from');
+        } elseif (request('status')) {
+            $query->where('status', request('status'));
+        }
+
+        return response()->json($query->get());
+    }
+
+    #[OA\Get(
+        path: '/appointments/trashed',
+        summary: 'List soft-deleted (cancelled/removed) appointments',
+        tags: ['Appointments'],
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Array of trashed appointments', content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/Appointment'))),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ]
+    )]
+    public function trashed()
+    {
         return response()->json(
-            Appointment::with(['client', 'service'])->orderBy('starts_at')->get()
+            Appointment::onlyTrashed()->with(['client', 'service'])->orderBy('starts_at')->get()
         );
     }
 
@@ -94,6 +118,47 @@ class AppointmentController extends Controller
     public function update(UpdateAppointmentRequest $request, Appointment $appointment)
     {
         $appointment = $this->appointmentService->update($appointment, $request->validated());
+        return response()->json($appointment->load(['client', 'service']));
+    }
+
+    #[OA\Delete(
+        path: '/appointments/{id}',
+        summary: 'Soft-delete (remove) an appointment',
+        tags: ['Appointments'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'), example: 1),
+        ],
+        responses: [
+            new OA\Response(response: 204, description: 'Appointment deleted'),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 404, description: 'Not found'),
+        ]
+    )]
+    public function destroy(Appointment $appointment)
+    {
+        $appointment->delete();
+        return response()->json(null, 204);
+    }
+
+    #[OA\Post(
+        path: '/appointments/{id}/restore',
+        summary: 'Restore a soft-deleted appointment',
+        tags: ['Appointments'],
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'), example: 1),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Appointment restored', content: new OA\JsonContent(ref: '#/components/schemas/Appointment')),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+            new OA\Response(response: 404, description: 'Not found'),
+        ]
+    )]
+    public function restore(int $id)
+    {
+        $appointment = Appointment::onlyTrashed()->findOrFail($id);
+        $appointment->restore();
         return response()->json($appointment->load(['client', 'service']));
     }
 }
